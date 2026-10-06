@@ -1,0 +1,101 @@
+---
+title: "Module 6_Assignment_Andrew Claxton_QMM"
+date: "2026-10-06"
+output: pdf_document
+---
+
+```{r}
+
+library(lpSolve)
+obj <- c(
+  622, 614, 630, 600, # Plant A
+  641, 645, 649, 625  # Plant B
+)
+```
+Load library lpSolve. Establish objective vector where the variables represent
+combined production and shipping costs from plant A and Plant B to Warehouses 1,
+2,3 plus a dummy warehouse for both plants to account for unused capacity.
+
+```{r}
+const.mat <- matrix(c(
+  # Plant A
+  1,1,1,1,0,0,0,0,
+
+  # Plant B
+  0,0,0,0,1,1,1,1,
+
+  # Wh1
+  1,0,0,0,1,0,0,0,
+
+  # Wh2
+  0,1,0,0,0,1,0,0,
+
+  # Wh3
+  0,0,1,0,0,0,1,0,
+
+  # Dummy whs
+  0,0,0,1,0,0,0,1
+), nrow = 6, byrow = TRUE)
+```
+Establish the constraint matrix with rows for the plant A capacity constraint, the plant B capacity constraint, wharehouse 1 demand, warehouse 2 demand, warehouse 3 demand, and dummy destinations
+
+```{r}
+const.dir <- c(
+  "<=", # Plant A
+  "<=", # Plant B
+  "=",  # W1
+  "=",  # W2
+  "=",  # W3
+  "="   # Dummy
+  )
+```
+Establish constraint directions. Plants can produce less than or equal to their 
+capacity but warehouse requirements must be met exactly to meet demand. The 
+dummy contraint direction is also set to equal to account for the entire 
+10-unit surplus.
+
+```{r}
+rhs <- c(
+  100,
+  120,
+  80,
+  60,
+  70,
+  10
+)
+```
+Establish right hand side constraint values for plant production capacity, 
+warehouse demand, and the 10-unit surplus capacity. 
+
+```{r}
+solution <- lp(
+  direction = "min",
+  objective.in = obj,
+  const.mat = const.mat,
+  const.dir = const.dir,
+  const.rhs = rhs
+)
+```
+Call the lp function. Set direction to minimize, then use our variables above
+the objective vectors, constraint matrix, constraint directions, and rhs values.
+
+```{r}
+matrix(
+solution$solution,
+nrow = 2,
+byrow = TRUE,
+dimnames = list(
+c("PlantA","PlantB"),
+c("W1","W2","W3","Dummy")
+)
+)
+```
+Our result satisfies all constraints. Plant A will produce and ship 90 units,
+shipping 60 to warehouse 2 and 30 units to warehouse 3. Plant B will produce 
+120 units, shipping 80 to warehouse 1 and 40 to warehouse 3. The solution 
+accounts for 10 extra production capacity and assigns it to plant A because 
+that plant has the lower production cost, but a real company 
+likely wouldn't actually produce those units unless they could be effectively 
+used in the next cycle of shipping. This solution also logically makes sense
+based on plant A's high shipping costs to warehouse 1 and plant B's high
+shipping costs to warehouse 2.
