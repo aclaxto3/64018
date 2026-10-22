@@ -1,0 +1,166 @@
+---
+title: "QMM_Module 8 Assignment_Andrew Claxton"
+output: pdf_document
+date: "2026-10-22"
+---
+
+```{r}
+
+library(Benchmarking)
+library(knitr)
+
+# Facility names
+facilities <- paste("Facility", 1:6)
+
+# Inputs: staff hours and supplies
+X <- cbind(
+  Staff_Hours = c(150, 400, 320, 520, 350, 320),
+  Supplies    = c(0.2, 0.7, 1.2, 2.0, 1.2, 0.7)
+)
+
+```
+```{r}
+# Outputs, in thousands
+Y <- cbind(
+  Third_Party_Patient_Days = c(14, 14, 42, 28, 19, 14),
+  Private_Patient_Days     = c(3.5, 21, 10.5, 42, 25, 15)
+)
+rownames(X) <- facilities
+rownames(Y) <- facilities
+
+#Assignment model names
+model_codes <- c(
+  FDH = "fdh",
+  VRS = "vrs",
+  DRS = "drs",
+  IRS = "irs",
+  CRS = "crs",
+  FRH = "add"
+)
+
+```
+
+```{r}
+#Objects to store results
+
+models <- list()
+
+# Facility by Model efficiency table.
+efficiency_table <- data.frame(
+  Facility = facilities
+)
+
+# Peer and lambda table
+all_peer_lambdas <- data.frame(
+  Model = character(),
+  Facility_Evaluated = character(),
+  Peer_Facility = character(),
+  Lambda = numeric()
+)
+
+```
+
+```{r}
+#Running every model and printing result
+
+for (model_name in names(model_codes)) {
+  cat("\n")
+  cat("====================================================\n")
+  cat("MODEL:", model_name, "\n")
+  cat("RTS CODE:", model_codes[[model_name]], "\n")
+  cat("====================================================\n")
+
+  model_fit <- dea(
+    X,
+    Y,
+    RTS = model_codes[[model_name]]
+  )
+
+  # Save all results
+  models[[model_name]] <- model_fit
+
+#Print efficiency scores and add scores to final efficiency table
+  model_efficiency <- data.frame(
+    Facility = facilities,
+    Efficiency = round(model_fit$eff, 4)
+  )
+
+  cat("\nEfficiency Scores:\n")
+  print(model_efficiency)
+
+  # Add this model's scores to the final efficiency table.
+  efficiency_table[[model_name]] <- round(model_fit$eff, 4)
+
+#Print peers and lambdas
+ 
+lambda_matrix <- model_fit$lambda
+
+  # Force readable row and column names.
+  rownames(lambda_matrix) <- facilities
+  colnames(lambda_matrix) <- facilities
+
+  # Convert lambda matrix into a long table.
+  peer_lambda_table <- as.data.frame(as.table(lambda_matrix))
+
+  names(peer_lambda_table) <- c(
+    "Facility_Evaluated",
+    "Peer_Facility",
+    "Lambda"
+  )
+
+  # Keep only actual peers: lambda values greater than zero.
+  peer_lambda_table <- subset(
+    peer_lambda_table,
+    Lambda > 0.000001
+  )
+
+  # Add model name and clean the output.
+  peer_lambda_table$Model <- model_name
+  peer_lambda_table$Lambda <- round(peer_lambda_table$Lambda, 4)
+
+  peer_lambda_table <- peer_lambda_table[
+    , c("Model", "Facility_Evaluated", "Peer_Facility", "Lambda")
+  ]
+
+  cat("\nPeers and Nonzero Lambdas:\n")
+  print(peer_lambda_table)
+
+  # Add this model's peer/lambda results to the combined table.
+  all_peer_lambdas <- rbind(
+    all_peer_lambdas,
+    peer_lambda_table
+  )
+}
+
+```
+
+
+```{r}
+#Print final facility and model score table; 
+#Also print the final peer/lambda table
+
+cat("\n")
+cat("====================================================\n")
+cat("FINAL EFFICIENCY TABLE\n")
+cat("====================================================\n")
+
+knitr::kable(
+  efficiency_table,
+  caption = "Final Efficiency Scores",
+  digits = 4,
+  align = "lrrrrrr"
+)
+
+
+cat("\n")
+cat("====================================================\n")
+cat("FINAL PEER AND LAMBDA TABLE\n")
+cat("====================================================\n")
+knitr::kable(
+  all_peer_lambdas,
+  caption = "Final Peer and Lambda Table",
+  digits = 4,
+  align = c("l", "l", "l", "r")
+)
+```
+The DEA results indicate that Facilities 1–4 are efficient under all six assumptions. Facility 5 is inefficient under DRS and CRS, with an efficiency score of 0.9775, which means they could reduce input by 2.3% and produce the same output if operating under assumptions of decreasing returns to scale or constant returns to scale . Facility 6 is the least efficient, scoring 0.8963 under VRS and IRS and 0.8675 under DRS and CRS. That means facility 6 could reduce inputs by 10.4% or 13.3% depending on which assumptions are made about returns to scale. FDH and FRH classify all facilities as efficient. Overall, CRS and DRS identify greater inefficiency than VRS and IRS, while FDH and FRH provide no differentiation among facilities in this dataset.
