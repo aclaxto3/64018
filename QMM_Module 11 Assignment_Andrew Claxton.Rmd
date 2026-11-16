@@ -1,0 +1,92 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+```{r}
+
+library(lpSolve)
+
+#objective function:
+#MinZ = 775x1+800x2+800x3+800x4+800x5+775x6+750x7
+#constraints are formed by making sure all the workers
+#that are NOT off that shift meet the minimum labor 
+#requirement
+
+# Wage for each of the seven possible schedules
+wages <- c(775, 800, 800, 800, 800, 775, 750)
+
+# Rows are one day sunday through sat
+# Columns are shifts 1 through 7 (which days they are off)
+# A 1 means workers on that shift are available that day.
+WorkersAvailByDay <- matrix(c(
+  # Sunnday
+  0, 1, 1, 1, 1, 1, 0,
+  # Monday
+  0, 0, 1, 1, 1, 1, 1,
+  # Tuesday
+  1, 0, 0, 1, 1, 1, 1,
+  # Wednesday
+  1, 1, 0, 0, 1, 1, 1,
+  # Thursday
+  1, 1, 1, 0, 0, 1, 1,
+  # Friday
+  1, 1, 1, 1, 0, 0, 1,
+  # Saturday
+  1, 1, 1, 1, 1, 0, 0), 
+  nrow = 7, byrow = TRUE)
+
+# Minimum workers required each day
+workers_required <- c(18, 27, 22, 26, 25, 21, 19)
+
+# Model Formulation
+model <- lp(
+  direction = "min",
+  objective.in = wages,
+  const.mat = WorkersAvailByDay,
+  const.dir = c(">=", ">=", ">=", ">=", ">=", ">=", ">="),
+  const.rhs = workers_required,
+  all.int = TRUE
+)
+
+# Display optimization status
+model$status
+# 0 m,eans we found an optimal solution
+
+# Optimal number assigned to each shift
+workers_by_shift <- round(model$solution)
+
+# Number of workers available each day
+workers_available <- WorkersAvailByDay %*% workers_by_shift
+
+# Results table
+shift_results <- data.frame(
+  Shift = 1:7,
+  Days_Off = c(
+    "Sunday and Monday",
+    "Monday and Tuesday",
+    "Tuesday and Wednesday",
+    "Wednesday and Thursday",
+    "Thursday and Friday",
+    "Friday and Saturday",
+    "Saturday and Sunday"
+  ),
+  Weekly_Wage = wages,
+  Workers_Assigned = workers_by_shift
+)
+
+daily_results <- data.frame(
+  Day = c("Sunday", "Monday", "Tuesday", "Wednesday",
+          "Thursday", "Friday", "Saturday"),
+  Workers_Required = workers_required,
+  Workers_Available = as.vector(workers_available),
+  Extra_Workers = as.vector(workers_available) - workers_required
+)
+
+print(shift_results)
+print(daily_results)
+print(model$objval)
+```
+
+The Company should schedule 33 personnel across the seven possible day-off pairings. The optimal solution indicates that the company should assign 2 workers to Shift 1, 4 workers to Shift 2, 5 workers to Shift 3, 0 workers to Shift 4, 8 workers to Shift 5, 1 worker to Shift 6, and 13 workers to Shift 7. This schedule meets the minimum daily labor requirements while minimizing total labor costs. The minimized weekly labor cost for this schedule is 25,675 dollars. Because this is an integer linear programming problem, multiple optimal solutions may exist, meaning different combinations of worker assignments could potentially satisfy all staffing constraints while producing the same minimum total labor cost.
+
